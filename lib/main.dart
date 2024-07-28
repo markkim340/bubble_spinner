@@ -1,125 +1,187 @@
+import 'dart:math';
+
+import 'package:bubble_spinner/component/bubble.dart';
+import 'package:flame/events.dart';
+import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 
 void main() {
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  // This widget is the root of your application.
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
-    );
-  }
-}
-
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
+  runApp(MaterialApp(
+    home: Scaffold(
       body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
+        child: Container(
+          child: GameWidget(game: BubbleSpinnerGame()),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+    ),
+  ));
+}
+
+class BubbleSpinnerGame extends FlameGame with TapDetector {
+  late List<BubbleComponent> bubbles;
+  late Vector2 shooterPosition;
+  late Vector2 shooterDirection;
+  late BubbleComponent nextBubble;
+  final Random random = Random();
+
+  bool isGameOver = false; // 게임 종료 상태 추가
+
+  double rotationAngle = 0.0; // 클러스터 회전 각도
+
+  @override
+  Future<void> onLoad() async {
+    await super.onLoad();
+
+    shooterPosition = Vector2(size.x / 2, size.y - 50);
+    shooterDirection = Vector2(0, -1);
+
+    bubbles = [];
+    _initializeBubbles();
+    _createNextBubble();
+  }
+
+  void _initializeBubbles() {
+    final center = Vector2(size.x / 2, size.y / 2);
+    for (int i = 0; i < 20; i++) {
+      final angle = i * 0.30;
+      final position = center + Vector2(cos(angle), sin(angle)) * 100;
+      final bubble =
+          BubbleComponent(position: position, color: _getRandomColor());
+      add(bubble);
+      bubbles.add(bubble);
+    }
+  }
+
+  void _createNextBubble() {
+    nextBubble =
+        BubbleComponent(position: shooterPosition, color: _getRandomColor());
+    add(nextBubble);
+  }
+
+  Color _getRandomColor() {
+    return [
+      Colors.red,
+      Colors.blue,
+      Colors.green,
+      Colors.yellow,
+      Colors.purple,
+    ][random.nextInt(5)];
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+
+    if (isGameOver) return; // 게임 종료 시 업데이트 중지
+
+    // 게임 오버 조건 확인: 클러스터의 버블이 경계선에 닿았는지 확인
+    for (final bubble in bubbles) {
+      if (bubble.position.x <= 0 ||
+          bubble.position.x + bubble.radius * 2 >= size.x ||
+          bubble.position.y <= 0 ||
+          bubble.position.y + bubble.radius * 2 >= size.y) {
+        endGame();
+        break;
+      }
+    }
+
+    bubbles.removeWhere((bubble) => bubble.shouldRemove);
+    _rotateBubbles(dt); // 클러스터 회전
+  }
+
+  @override
+  void render(Canvas canvas) {
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, size.x, size.y),
+      Paint()..color = Colors.white,
     );
+
+    super.render(canvas);
+
+    // 경계선을 빨간색으로 그리기
+    final paint = Paint()
+      ..color = Colors.red
+      ..strokeWidth = 4
+      ..style = PaintingStyle.stroke;
+
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, size.x, size.y),
+      paint,
+    );
+
+    // Draw shooter line
+    if (!isGameOver) {
+      canvas.drawLine(
+        shooterPosition.toOffset(),
+        (shooterPosition + shooterDirection * 50).toOffset(),
+        Paint()
+          ..color = Colors.black
+          ..strokeWidth = 2,
+      );
+    }
+  }
+
+  @override
+  void onTapUp(TapUpInfo info) {
+    shooterDirection =
+        (info.eventPosition.global - shooterPosition).normalized();
+    _shootBubble();
+  }
+
+  void _shootBubble() {
+    nextBubble.shoot(shooterDirection);
+    _createNextBubble();
+  }
+
+  void _rotateBubbles(double dt) {
+    rotationAngle += dt; // 회전 각도 증가
+    final center = Vector2(size.x / 2, size.y / 2);
+    for (final bubble in bubbles) {
+      final direction = bubble.position - center;
+      final distance = direction.length;
+      final angle = atan2(direction.y, direction.x) + dt; // 각도 증가
+      bubble.position = center + Vector2(cos(angle), sin(angle)) * distance;
+    }
+  }
+
+  void endGame() {
+    isGameOver = true;
+    pauseEngine();
+    _showGameOverDialog();
+  }
+
+  void _showGameOverDialog() {
+    // 게임 종료 팝업 표시 로직 추가
+    showDialog(
+      context: buildContext!,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Game Over'),
+          content: Text('You have hit the boundary!'),
+          actions: <Widget>[
+            TextButton(
+              child: Text('Restart'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                _restartGame();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _restartGame() {
+    // 게임 재시작 로직 추가
+    isGameOver = false;
+    bubbles.clear();
+    children.whereType<BubbleComponent>().forEach((bubble) {
+      remove(bubble);
+    });
+
+    _initializeBubbles();
+    _createNextBubble();
+    resumeEngine();
   }
 }
