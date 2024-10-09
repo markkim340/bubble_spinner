@@ -42,14 +42,46 @@ class BubbleSpinnerGame extends FlameGame with TapDetector {
 
   void _initializeBubbles() {
     final center = Vector2(size.x / 2, size.y / 2);
-    for (int i = 0; i < 20; i++) {
-      final angle = i * 0.30;
-      final position = center + Vector2(cos(angle), sin(angle)) * 100;
-      final bubble =
-          BubbleComponent(position: position, color: _getRandomColor());
-      add(bubble);
-      bubbles.add(bubble);
+    final hexRadius = min(size.x, size.y) / 30; // 화면 크기에 따라 자동 조절
+    final horizontalSpacing = hexRadius * sqrt(3);
+    final verticalSpacing = hexRadius * 1.5;
+
+    final layers = 2; // 중심으로부터의 레이어 수 (조절 가능)
+
+    // 중심 버블 생성
+
+    for (int q = -layers; q <= layers; q++) {
+      for (int r = -layers; r <= layers; r++) {
+        int s = -q - r;
+        if (s.abs() <= layers) {
+          final x =
+              center.x + horizontalSpacing * (sqrt(3) * q + sqrt(3) / 2 * r);
+          final y = center.y + verticalSpacing * (3 / 2 * r);
+
+          if ((center - Vector2(x, y)).length <= layers * horizontalSpacing) {
+            _createBubble(Vector2(x, y), _getRandomColor());
+          }
+        }
+      }
     }
+
+    // for (int i = 0; i < 20; i++) {
+    //   final angle = i * 0.30;
+    //   final position = center + Vector2(cos(angle), sin(angle)) * 100;
+    //   final bubble =
+    //       BubbleComponent(position: position, color: _getRandomColor());
+    //   add(bubble);
+    //   bubbles.add(bubble);
+    // }
+  }
+
+  void _createBubble(Vector2 position, Color color) {
+    final bubble = BubbleComponent(
+      position: position,
+      color: color,
+    );
+    add(bubble);
+    bubbles.add(bubble);
   }
 
   void _createNextBubble() {
@@ -59,13 +91,16 @@ class BubbleSpinnerGame extends FlameGame with TapDetector {
   }
 
   Color _getRandomColor() {
-    return [
+    final colors = [
       Colors.red,
       Colors.blue,
       Colors.green,
       Colors.yellow,
       Colors.purple,
-    ][random.nextInt(5)];
+      Colors.orange,
+      Colors.teal,
+    ];
+    return colors[Random().nextInt(colors.length)];
   }
 
   @override
